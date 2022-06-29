@@ -1,5 +1,8 @@
 classdef VDisp < handle
 % TODO min max values for points and display
+properties(Dependent)
+    posXYpix
+end
 properties
 
     %Opts
@@ -39,6 +42,9 @@ properties
     PP
 end
 methods
+    function out=get.posXYpix(obj)
+        out=obj.ctrXYpix;
+    end
     function obj=VDisp(hostname,subjname)
         if nargin < 1
             hostname=Sys.hostname;
@@ -127,8 +133,8 @@ methods
             j=screens(i);
             [wh(i,1) wh(i,2)]=Screen('DisplaySize',j);
         end
-        [ind]=ismember(wh,obj.WHpix,'rows');
-        ind=find(ind);
+        [ind]=ismember(wh,obj.WHmm,'rows');
+        ind=find(ind,1,'first');
         obj.sid=screens(ind);
         if isempty(obj.sid);
             obj.sid=0;
@@ -182,7 +188,7 @@ methods(Static=true)
             name=Sys.hostname;
             name=strtok(strrep(name,'-','_'),'.');
         end
-        dire=getenv('PX_ETC');
+        dire=Env.var('PX_ETC');
         fil=[dire 'VDisp.d' filesep name '.cfg'];
         if ~Fil.exist(fil)
             error(['VDisp config ' fil ' does not exist']);

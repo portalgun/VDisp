@@ -47,6 +47,14 @@ properties
     gammaFlag=-1
 
 
+    vblT
+    onsetT
+    flipT
+    listen=1 % 0 - off, 1 - on, 2 - ptb only
+
+    setupInfo
+    closeInfo
+    ME
 end
 methods
     function obj=Ptb(vDisp,Opts)
@@ -67,7 +75,14 @@ methods
         try
             sca;
         end
-        obj.Ptb_main();
+        [obj.setupInfo]=evalc('obj.Ptb_main();');
+        obj.setupInfo=strrep(obj.setupInfo,[newline newline],'');
+        obj.setupInfo=regexprep(obj.setupInfo,'PTB-','  PTB-');
+        obj.setupInfo=regexprep(obj.setupInfo,'PTB-WARNING','PTB-WARN');
+        if ~isempty(obj.ME)
+            disp(obj.setupInfo)
+            rethrow(ME);
+        end
 
     end
     function parse_display(obj,vDisp)
@@ -117,7 +132,8 @@ methods
 
         obj.bStereo=obj.stereoMode > 0;
     end
-    function obj=Ptb_main(obj)
+    function Ptb_main(obj)
+        obj.ME=[];
         obj.dispSepS('PTB_SETUP');
         try
             obj.dispSep('VDISP');
@@ -127,10 +143,18 @@ methods
             obj.dispSep('GAMMA');
             obj.gamma_setup();
 
-            obj.dispSep('OPEN');
             obj.DP_open();
-            obj.open(); %wdwPtr
-            disp([newline]);
+
+            %obj.textFont
+            %obj.text.font=obj.textFont;
+            %Screen('Preference','DefaultFontName')
+            %Screen('Preference','DefaultFontName',obj.textFont);
+            %Screen('Preference','DefaultFontStyle',0);
+            %Screen('Preference','TextRenderer', 1);
+
+            obj.dispSep('OPEN');
+            obj.open();
+            %obj.openInfo=evalc('obj.open();'); %wdwPtr
             if obj.bVR
                 obj.dispSep('VR');
                 obj.VR_setup();
@@ -138,21 +162,22 @@ methods
             obj.dispSep('IFI');
             obj.get_ifi();
             obj.dispSep('TEXT');
-            obj.set_text;
+            obj.set_text();
+            %obj.textInfo=evalc('obj.set_text;');
             obj.dispSep('ALPHA');
             obj.alpha_blend_on;
             obj.dispSep('GAMMA_APPLY');
             obj.gamma_correct();
-            obj.dispSep('FLIP');
+            obj.dispSep('main.pilot_flatFLIP');
             Screen('Flip', obj.wdwPtr,[],0);
             obj.refresh;
-            ListenChar(-1);
+            obj.keyOn_noMat();
             obj.dispSepS('PTB_SETUP_END');
         catch ME
             try
                 obj.sca;
             end
-            rethrow(ME);
+            obj.ME=ME;
         end
     end
     function obj = get_ifi(obj)
@@ -232,15 +257,20 @@ methods
         obj.bAlphaBlendingOn=0;
     end
 
-    function obj=open(obj)
+    function open(obj)
         XY=obj.VDisp.XYpix;
         WH=obj.VDisp.WHpix;
         rect=[XY XY+WH];
-        %[obj.wdwPtr, obj.wdwXYpix]  = PsychImaging('OpenWindow', obj.VDisp.sid, obj.gry, [],[], [], obj.stereoMode);
-        [obj.wdwPtr, obj.wdwXYpix]  = PsychImaging('OpenWindow', obj.VDisp.sid, obj.gry, rect,[], [], obj.stereoMode);
+        if ismac
+            [obj.wdwPtr, obj.wdwXYpix]  = PsychImaging('OpenWindow', obj.VDisp.sid, obj.gry, [],[], [], obj.stereoMode);
+        else
+            [obj.wdwPtr, obj.wdwXYpix]  = PsychImaging('OpenWindow', obj.VDisp.sid, obj.gry, rect,[], [], obj.stereoMode);
+        end
     end
 % TEXT/FONT
     function []=set_text(obj)
+
+
         obj.text.font=obj.textFont;
         obj.text.size=obj.textSize;
         obj.cText.size=obj.text.size;
@@ -251,23 +281,23 @@ methods
         Screen('TextSize',obj.wdwPtr,obj.textSize);
 
         if obj.bTextRender
-            33
             Screen('Preference','TextRenderer', 1);
         end
 
-        [obj.text.H,obj.text.W,obj.text.WSpc]=obj.get_text_char_dims();
+        [obj.text.H,obj.text.W,obj.text.WSpc,obj.text.HTail]=obj.get_text_char_dims();
 
         obj.text.dH=obj.text.H/obj.text.size;
         obj.text.dW=obj.text.W/obj.text.size;
         obj.text.dWSpc=obj.text.WSpc/obj.text.size;
 
-        obj.cText.H=obj.text.H;
-        obj.cText.W=obj.text.W;
-        obj.cText.WSpc=obj.text.WSpc;
+        obj.cText=obj.text;
+        %obj.cText.H=obj.text.H;
+        %obj.cText.W=obj.text.W;
+        %obj.cText.WSpc=obj.text.WSpc;
 
-        obj.cText.dH=obj.text.dH;
-        obj.cText.dW=obj.text.dW;
-        obj.cText.dWSpc=obj.text.dWSpc;
+        %obj.cText.dH=obj.text.dH;
+        %obj.cText.dW=obj.text.dW;
+        %obj.cText.dWSpc=obj.text.dWSpc;
     end
     function change_font(obj,textFont,textSize)
         bFontFlag=false;
@@ -291,7 +321,7 @@ methods
             bSizeFlag=true;
         end
         if bFontFlag
-            [obj.cText.H,obj.cText.W,obj.cText.H]=obj.get_text_char_dims();
+            [obj.cText.H,obj.cText.W,obj.cText.WSpc,obj.cText.HTail]=obj.get_text_char_dims();
         elseif bSizeFlag
             obj.update_text_char_dims(lastSize,lastW,lastH,lastWSpc);
         end
@@ -303,7 +333,7 @@ methods
         obj.cText.H    = lastH    + obj.cText.dH    * dSz;
         obj.cText.WSpc = lastWSpc + obj.cText.dWSpc * dSz;
     end
-    function [height,width,hspace]=get_text_char_dims(obj)
+    function [height,width,wspace,htail]=get_text_char_dims(obj)
         jR=Screen('TextBounds',obj.wdwPtr,'j');
         %hj=jR(4)-jR(2);
 
@@ -320,7 +350,8 @@ methods
 
         height=jR(4)-gR(2);
         width=wg;
-        hspace=wgg-wg*2;
+        wspace=wgg-wg*2;
+        htail=height-(gR(4)-gR(2));
         %vspace=hjj-hj*2
         %dk
     end
@@ -340,7 +371,7 @@ methods
             when=0;
         end
         Screen('DrawingFinished',obj.wdwPtr);
-        Screen('Flip',obj.wdwPtr,when,0,0,1);
+        [obj.vblT obj.onsetT obj.flipT]= Screen('Flip',obj.wdwPtr,when,0,0,1);
     end
     function []=flip_hold(obj,when)
         if ~exist('when','var')
@@ -358,7 +389,7 @@ methods
         switch obj.VDisp.GammaC.type
             case {'None','','none'}
                 return
-            case 'LookupTable'
+            case {'LookupTable','Lookup'}
                 PsychImaging('AddTask', 'FinalFormatting', 'DisplayColorCorrection', 'LookupTable');
             case 'Simple'
                 PsychImaging('AddTask', 'FinalFormatting', 'DisplayColorCorrection', 'SimpleGamma');
@@ -372,7 +403,7 @@ methods
         switch obj.VDisp.GammaC.type
             case {'None','none',''}
                 obj.gammaFlag=0;
-            case 'LookupTable'
+            case {'LookupTable','Lookup'}
                 fprintf('    ');
                 PsychColorCorrection('SetLookupTable', obj.wdwPtr, obj.VDisp.GammaC.inv);
                 disp(['    Using ' obj.VDisp.GammaC.type ' to correct gamma']);
@@ -386,25 +417,43 @@ methods
         end
     end
 
-    function obj=close(obj)
-        obj.sca();
+    function close(obj)
+        obj.closeInfo=evalc('obj.sca();');
+        obj.closeInfo=strrep(obj.closeInfo,[newline newline],'');
     end
-    function obj= sca(obj)
+    function sca(obj)
         obj.dispSepS('PTB_CLOSE');
 
         try
             obj.DP_close;
         end
         sca;
-        %if obj.VDisp.bAutoRandr
-        %    try
-        %        obj.VDisp.autorandrReturn();
-        %    end
-        %end
-        ListenChar(0);
-        ListenChar(2);
+
+        obj.keyOn_noPtb;
         disp(newline);
         obj.dispSepS('PTB_CLOSE_END');
+    end
+%% KEY
+    function keyOn(obj)
+        if obj.listen==-1
+            obj.listen=0;
+            ListenChar(obj.listen);
+        end
+        obj.listen=1;
+        ListenChar(obj.listen);
+    end
+    function keyOn_noMat(obj)
+        obj.listen=2;
+        ListenChar(obj.listen);
+    end
+    function keyOn_noPtb(obj)
+        obj.listen=0;
+        ListenChar(obj.listen);
+    end
+    function keyOff(obj)
+        % neither
+        obj.listen=-1;
+        ListenChar(obj.listen);
     end
 
 end
@@ -433,12 +482,11 @@ methods(Static)
             Ptb.DPclose();
         end
         sca;
-        ListenChar(0);
-        ListenChar(2);
+        obj.keyOn;
     end
     function P=getP()
         P={ ...
-            'textFont','Monospace','ischar'; % XXX isfont
+            'textFont','Monospaced','ischar'; % XXX isfont
             'textSize',30,'Num.is';
             'gry',0.5,'isnormal';
             'wht',1.0,'isnormal';

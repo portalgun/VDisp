@@ -26,8 +26,6 @@ properties
     L
     R
 
-    PPxyz
-
 end
 properties(Hidden)
     plane
@@ -245,6 +243,7 @@ methods(Static,Access=private)
         % For each 'xi', get the position of the 'x' element bounding it on the left [p x 1]
         [~,ind1] = histc(xi,x); % XXX bottleneck 1, get left bound
 
+        ind1
         ind1 = max(ind1,1);     % To avoid index=0 when xi < x(1)
         ind1 = min(ind1,m-1);   % To avoid index=m+1 when xi > x(end).
 

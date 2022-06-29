@@ -37,16 +37,16 @@ methods
             return
         end
         % LOAD
-        bSucces=obj.get_fname;
+        bSuccess=obj.get_fname;
         if ~bSuccess
             return
         end
         S=load([obj.dir obj.fname]);
 
         % SELECT
-        if ~isfield(S,'cal') && ~isempty(obj.cal)
-            S.cal=S.cals{obj.cal};
-        elseif ~isfield(S,'cal')
+        if isfield(S,'cal') && ~isempty(S.cal)
+            S.cal=S.cal{obj.cal};
+        elseif isfield(S,'cals')
             S.cal=S.cals{end};
         end
         obj.cal=S.cal;
@@ -81,10 +81,9 @@ methods
             bSuccess=true;
         elseif isequal(obj.bSetName,1) && ~isequal(obj.bSetName,1)
             [~,obj.dir]=lORs('cal');
-            chkFile([obj.dir obj.fname]);
-            bSuccess=true;
+            bSuccess=Fil.exist([obj.dir obj.fname]);
         else
-            chkFile([obj.dir obj.fname]);
+            bSuccess=Fil.exist([obj.dir obj.fname]);
             bSuccess=true;
         end
     end
@@ -132,9 +131,7 @@ methods
     end
     function [file,dat]=get_newest_cal_file(obj,dir)
         FILES=Fil.find(dir,[obj.name '.*\.mat']);
-        if numel(FILES)==1
-            ind=1;
-        elseif numel(FILES)==0
+        if numel(FILES)==0
             file=[];
             dat=[];
             return
@@ -145,11 +142,11 @@ methods
         dates=strrep(dates,'-',' ');
         dates=strtrim(dates);
         dates=strrep(dates,' ','-');
-        dates=dates(Str.RE.ismatch(dates,'[A-Za-z]{3}-[0-9]{2}-[0-9]{4}'));
+        ind=Str.RE.ismatch(dates,'[A-Za-z]{3}-[0-9]{2}-[0-9]{4}');
+        dates=dates(ind);
+        FILES=FILES(ind);
 
-        if ~exist('ind','var')
-            ind=Date.newest(dates);
-        end
+        ind=Date.newest(dates);
         file=FILES(ind);
         dat=dates{ind};
     end
