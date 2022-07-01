@@ -90,8 +90,8 @@ methods
     function [file,fdir] = get_newest_cal_file_all(obj)
         file=[];
         fdir=[];
-        fdirLoc = Env.var('cal','LOC');
-        fdirSrv = Env.var('cal','SRV');
+        fdirLoc = Env.var('VDisp.cal','LOC');
+        fdirSrv = Env.var('VDisp.cal','SRV');
         if exist(fdirLoc,'dir')
             flagLoc = Dir.check(fdirLoc,1,0);
         else
